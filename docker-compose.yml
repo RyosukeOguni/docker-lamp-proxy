@@ -1,0 +1,64 @@
+# Docker Composeファイルのバージョンを指定
+version: "3.9"
+
+services:
+
+  https-portal:
+    image: steveltn/https-portal
+    ports:
+      - 80:80
+      - 443:443
+    restart: always
+    environment:
+      STAGE: local
+      DOMAINS: 'admin-skya.jp -> http://admin-skya.jp, dev-skya.jp -> http://dev-skya.jp, dev-skya-old.jp -> http://dev-skya-old.jp'
+    networks:
+      - docker-net-001
+
+  db:
+    build: ./setting/mysql
+    ports:
+      - 3307:3306
+    volumes:
+      - db-store:/var/lib/mysql
+    networks:
+      - docker-net-001
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    ports:
+      - 8084:80
+    environment:
+      - PMA_ARBITRARY=1
+      - PMA_HOST=db
+      - PMA_USER=root
+      - PMA_PASSWORD=12345678
+    volumes:
+      - ./setting/phpmyadmin/phpmyadmin-misc.ini:/usr/local/etc/php/conf.d/phpmyadmin-misc.ini
+      - /sessions
+    networks:
+      - docker-net-001
+
+  php-apache:
+    build: ./setting/apache
+    volumes:
+      - ./www:/var/www/html
+      - ./setting/apache/apache.conf:/etc/apache2/sites-enabled
+    depends_on:
+      - db
+    ports:
+      - 8080:80
+    networks:
+      docker-net-001:
+        aliases:
+          - admin-skya.jp
+          - dev-skya.jp
+          - dev-skya-old.jp
+
+volumes:
+  db-store:
+    name: docker_skya_db-store
+
+networks:
+  docker-net-001:
